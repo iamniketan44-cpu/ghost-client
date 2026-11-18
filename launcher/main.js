@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -232,7 +232,7 @@ async function play({ username, ram }) {
 function createWindow() {
   win = new BrowserWindow({
     width: 480,
-    height: 640,
+    height: 800,
     resizable: false,
     autoHideMenuBar: true,
     backgroundColor: '#0f1117',
@@ -252,11 +252,104 @@ ipcMain.handle('init', () => {
   return {
     username: s.username || '',
     ram: s.ram || 4,
-    totalGb: Math.floor(os.totalmem() / 1024 ** 3),
+    totalGb: Math.round(os.totalmem() / 1024 ** 3),
     mcVersion: MC_VERSION,
   };
 });
 ipcMain.handle('play', (_e, data) => play(data));
+
+// ---- Mods manager ----
+const modsDir = () => path.join(ROOT(), 'game', 'mods');
+// Fabric API aur Ghost Menu launcher khud manage karta hai
+const isManaged = (f) => /^(fabric-api|ghostmenu)/i.test(f);
+
+// Mod ka naam aur icon jar ke andar fabric.mod.json se padhte hain
+const metaCache = new Map();
+function readModMeta(file) {
+  const full = path.join(modsDir(), file);
+  let st;
+  try {
+    st = fs.statSync(full);
+  } catch {
+    return {};
+  }
+  const key = `${file}:${st.size}:${st.mtimeMs}`;
+  if (metaCache.has(key)) return metaCache.get(key);
+
+  const meta = {};
+  try {
+    const zip = new AdmZip(full);
+    const entry = zip.getEntry('fabric.mod.json');
+    if (entry) {
+      const json = JSON.parse(entry.getData().toString('utf8').replace(/^﻿/, ''));
+      if (typeof json.name === 'string') meta.title = json.name;
+      else if (typeof json.id === 'string') meta.title = json.id;
+
+      let iconPath = json.icon;
+      if (iconPath && typeof iconPath === 'object') {
+        const sizes = Object.keys(iconPath)
+          .map(Number)
+          .filter(Number.isFinite)
+          .sort((a, b) => b - a);
+        iconPath = sizes.length ? iconPath[String(sizes[0])] : null;
+      }
+      if (typeof iconPath === 'string') {
+        const iconEntry = zip.getEntry(iconPath.replace(/^\/+/, ''));
+        if (iconEntry) {
+          const buf = iconEntry.getData();
+          if (buf.length <= 400 * 1024) {
+            meta.icon = 'data:image/png;base64,' + buf.toString('base64');
+          }
+        }
+      }
+    }
+  } catch {}
+  metaCache.set(key, meta);
+  return meta;
+}
+
+function listMods() {
+  const dir = modsDir();
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => /\.jar$/i.test(f))
+    .sort()
+    .map((f) => ({ name: f, locked: isManaged(f), ...readModMeta(f) }));
+}
+
+ipcMain.handle('list-mods', () => listMods());
+
+ipcMain.handle('add-mods', async () => {
+  if (busy) return { mods: listMods(), error: 'Game chal raha hai. Pehle game band karein, phir mod add karein.' };
+  const r = await dialog.showOpenDialog(win, {
+    title: 'Mod (.jar) chunein',
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'Fabric mod (.jar)', extensions: ['jar'] }],
+  });
+  if (!r.canceled) {
+    fs.mkdirSync(modsDir(), { recursive: true });
+    for (const p of r.filePaths) {
+      fs.copyFileSync(p, path.join(modsDir(), path.basename(p)));
+    }
+  }
+  return { mods: listMods() };
+});
+
+ipcMain.handle('remove-mod', (_e, name) => {
+  if (busy) return { mods: listMods(), error: 'Game chal raha hai. Pehle game band karein.' };
+  if (
+    typeof name === 'string' &&
+    path.basename(name) === name &&
+    /\.jar$/i.test(name) &&
+    !isManaged(name)
+  ) {
+    try {
+      fs.unlinkSync(path.join(modsDir(), name));
+    } catch {}
+  }
+  return { mods: listMods() };
+});
 ipcMain.handle('open-folder', () => {
   fs.mkdirSync(path.join(ROOT(), 'game'), { recursive: true });
   return shell.openPath(path.join(ROOT(), 'game'));

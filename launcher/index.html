@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'self'; style-src 'self'; script-src 'self'"
+    content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:"
   />
   <title>Ghost Launcher</title>
   <link rel="stylesheet" href="style.css" />
@@ -29,6 +29,15 @@
       <div id="bar" class="bar" hidden><div id="fill"></div></div>
       <p id="status"></p>
       <p id="error" hidden></p>
+    </section>
+
+    <section class="card mods">
+      <div class="mods-head">
+        <span>Mods</span>
+        <button id="addMod" class="small" type="button">+ Mod add karein</button>
+      </div>
+      <ul id="modList"></ul>
+      <p class="hint">Sirf Fabric 1.21.11 ke .jar mods. Fabric API pehle se laga hai.</p>
     </section>
 
     <footer>

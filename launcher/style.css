@@ -96,6 +96,87 @@ input:disabled, select:disabled { opacity: 0.6; }
 #status { margin: 10px 0 0; font-size: 13px; color: #aab0c0; min-height: 1em; }
 #error { margin: 10px 0 0; font-size: 13px; color: #ff6b6b; user-select: text; }
 
+.mods { margin-top: 14px; padding: 14px 16px; }
+
+.mods-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  font-size: 12px;
+  color: #8b90a0;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.small {
+  padding: 6px 10px;
+  background: #0f1117;
+  color: #e6e8ee;
+  border: 1px solid #2a3042;
+  border-radius: 8px;
+  font-size: 12px;
+  cursor: pointer;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.small:hover:not(:disabled) { border-color: #7c5cff; }
+.small:disabled { opacity: 0.5; cursor: default; }
+
+#modList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  max-height: 150px;
+  overflow: auto;
+}
+#modList li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+  background: #0f1117;
+  border-radius: 7px;
+  font-size: 12px;
+}
+#modList li.empty { color: #8b90a0; }
+.mod-icon {
+  width: 32px;
+  height: 32px;
+  flex: none;
+  border-radius: 7px;
+  object-fit: cover;
+}
+.mod-icon.ph {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #7c5cff, #3ec1ff);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+}
+.mod-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.mod-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.mod-file {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 10px;
+  color: #6b7080;
+}
+.tag { color: #7c5cff; font-size: 11px; }
+.rm {
+  background: none;
+  border: 0;
+  color: #ff6b6b;
+  cursor: pointer;
+  font-size: 13px;
+}
+body[data-locked="true"] .rm { opacity: 0.35; pointer-events: none; }
+
+.hint { margin: 8px 0 0; font-size: 11px; color: #6b7080; }
+
 footer {
   margin-top: auto;
   padding-top: 14px;
