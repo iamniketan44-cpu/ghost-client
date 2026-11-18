@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "id": "ghostmenu",
+  "version": "${version}",
+  "name": "Ghost Menu",
+  "description": "Right Shift in-game menu with HUD toggles (FPS, CPS, Keystrokes, Armor...).",
+  "authors": ["Ghost Client"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["com.ghost.menu.GhostMenuClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.1",
+    "minecraft": "1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
