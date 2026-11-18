@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; style-src 'self'; script-src 'self'"
+  />
+  <title>Ghost Launcher</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main>
+    <header>
+      <div class="logo">G</div>
+      <h1>Ghost Launcher</h1>
+      <p id="version">Minecraft &middot; Fabric</p>
+    </header>
+
+    <section class="card">
+      <label for="username">Username</label>
+      <input id="username" type="text" maxlength="16" placeholder="Apna naam likhein" autocomplete="off" />
+
+      <label for="ram">RAM (GB)</label>
+      <select id="ram"></select>
+
+      <button id="play" type="button">PLAY</button>
+
+      <div id="bar" class="bar" hidden><div id="fill"></div></div>
+      <p id="status"></p>
+      <p id="error" hidden></p>
+    </section>
+
+    <footer>
+      <button id="folder" class="link" type="button">Game folder kholein</button>
+      <button id="toggleLog" class="link" type="button">Log dikhao</button>
+    </footer>
+    <pre id="log" hidden></pre>
+  </main>
+  <script src="renderer.js"></script>
+</body>
+</html>
