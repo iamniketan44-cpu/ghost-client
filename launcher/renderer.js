@@ -8,7 +8,14 @@ const fillEl = $('fill');
 const statusEl = $('status');
 const errorEl = $('error');
 const logEl = $('log');
+const msInfo = $('msInfo');
+const msLogout = $('msLogout');
 
+let mode = 'offline';
+let msName = '';
+let locked = false;
+
+// ---------- helpers ----------
 function appendLog(line) {
   logEl.textContent += line.replace(/\s+$/, '') + '\n';
   const lines = logEl.textContent.split('\n');
@@ -16,31 +23,113 @@ function appendLog(line) {
   logEl.scrollTop = logEl.scrollHeight;
 }
 
+function showError(msg) {
+  errorEl.textContent = msg;
+  errorEl.hidden = false;
+}
+
+function iconOrLetter(url, label) {
+  if (url) {
+    const img = document.createElement('img');
+    img.className = 'mod-icon';
+    img.src = url;
+    img.alt = '';
+    return img;
+  }
+  const ph = document.createElement('div');
+  ph.className = 'mod-icon ph';
+  ph.textContent = (label || '?').charAt(0).toUpperCase();
+  return ph;
+}
+
+function fmtNum(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return String(n || 0);
+}
+
+// ---------- top bar (kaun khel raha hai) ----------
+function updateWho() {
+  let name;
+  if (mode === 'premium') {
+    $('whoLabel').textContent = 'Premium';
+    name = msName || 'Microsoft login';
+  } else {
+    $('whoLabel').textContent = 'Playing as';
+    name = usernameEl.value.trim() || '—';
+  }
+  $('whoName').textContent = name;
+  $('whoAvatar').textContent = name.charAt(0).toUpperCase();
+}
+
+function setAccount(name) {
+  msName = name || '';
+  if (msName) {
+    msInfo.textContent = `Login: ${msName}`;
+    msLogout.hidden = false;
+  } else {
+    msInfo.textContent = 'Launch dabane par Microsoft login window khulegi.';
+    msLogout.hidden = true;
+  }
+  updateWho();
+}
+
+function setMode(m) {
+  mode = m;
+  $('modeOffline').classList.toggle('active', m === 'offline');
+  $('modePremium').classList.toggle('active', m === 'premium');
+  $('offlineBox').hidden = m !== 'offline';
+  $('premiumBox').hidden = m !== 'premium';
+  updateWho();
+  if ($('page-capes').classList.contains('active')) enterCapes();
+}
+
+// ---------- navigation ----------
+let mrLoaded = false;
+
+function go(page, tab) {
+  document.querySelectorAll('.page').forEach((p) => p.classList.toggle('active', p.id === 'page-' + page));
+  document.querySelectorAll('.nav').forEach((n) => n.classList.toggle('active', n.dataset.page === page));
+  if (page === 'mods') showTab(tab || 'installed');
+  if (page === 'capes') enterCapes();
+}
+
+function showTab(tab) {
+  document.querySelectorAll('.tab').forEach((t) => t.classList.toggle('active', t.dataset.tab === tab));
+  $('tab-installed').hidden = tab !== 'installed';
+  $('tab-mr').hidden = tab !== 'mr';
+  if (tab === 'mr' && !mrLoaded) {
+    mrLoaded = true;
+    mrSearch();
+  }
+}
+
+document.querySelectorAll('.nav').forEach((n) => n.addEventListener('click', () => go(n.dataset.page)));
+document.querySelectorAll('.tab').forEach((t) => t.addEventListener('click', () => showTab(t.dataset.tab)));
+document.querySelectorAll('.tile').forEach((t) =>
+  t.addEventListener('click', () => {
+    if (t.dataset.go === 'modrinth') go('mods', 'mr');
+    else go(t.dataset.go);
+  })
+);
+
+// ---------- installed mods ----------
 const modListEl = $('modList');
 
 function renderMods(mods) {
+  $('modCount').textContent = `${mods.length} installed`;
   modListEl.textContent = '';
   if (!mods.length) {
     const li = document.createElement('li');
     li.className = 'empty';
-    li.textContent = 'Abhi koi mod nahi. Play dabane par Ghost Menu apne aap aa jayega.';
+    li.textContent = 'Abhi koi mod nahi. Launch dabane par Ghost Menu apne aap aa jayega.';
     modListEl.appendChild(li);
     return;
   }
   for (const m of mods) {
     const li = document.createElement('li');
-    if (m.icon) {
-      const img = document.createElement('img');
-      img.className = 'mod-icon';
-      img.src = m.icon;
-      img.alt = '';
-      li.appendChild(img);
-    } else {
-      const ph = document.createElement('div');
-      ph.className = 'mod-icon ph';
-      ph.textContent = (m.title || m.name).charAt(0).toUpperCase();
-      li.appendChild(ph);
-    }
+    li.appendChild(iconOrLetter(m.icon, m.title || m.name));
+
     const info = document.createElement('div');
     info.className = 'mod-info';
     const title = document.createElement('span');
@@ -49,9 +138,9 @@ function renderMods(mods) {
     const file = document.createElement('span');
     file.className = 'mod-file';
     file.textContent = m.name;
-    info.appendChild(title);
-    info.appendChild(file);
+    info.append(title, file);
     li.appendChild(info);
+
     if (m.locked) {
       const tag = document.createElement('span');
       tag.className = 'tag';
@@ -74,11 +163,6 @@ function renderMods(mods) {
   }
 }
 
-function showError(msg) {
-  errorEl.textContent = msg;
-  errorEl.hidden = false;
-}
-
 $('addMod').addEventListener('click', async () => {
   errorEl.hidden = true;
   const r = await window.ghost.addMods();
@@ -88,36 +172,19 @@ $('addMod').addEventListener('click', async () => {
 
 window.ghost.listMods().then(renderMods);
 
-// ---- Modrinth ----
-const mrEl = $('mr');
+// ---------- Modrinth ----------
 const mrList = $('mrList');
 const mrStatus = $('mrStatus');
 const mrQuery = $('mrQuery');
 let mrTimer = null;
 let mrSeq = 0;
 
-function fmtNum(n) {
-  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
-  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
-  return String(n || 0);
-}
-
 function renderMr(hits) {
   mrList.textContent = '';
   for (const h of hits) {
     const li = document.createElement('li');
-    if (h.icon) {
-      const img = document.createElement('img');
-      img.className = 'mod-icon';
-      img.src = h.icon;
-      img.alt = '';
-      li.appendChild(img);
-    } else {
-      const ph = document.createElement('div');
-      ph.className = 'mod-icon ph';
-      ph.textContent = (h.title || '?').charAt(0).toUpperCase();
-      li.appendChild(ph);
-    }
+    li.appendChild(iconOrLetter(h.icon, h.title));
+
     const info = document.createElement('div');
     info.className = 'mod-info';
     const t = document.createElement('span');
@@ -136,7 +203,7 @@ function renderMr(hits) {
     btn.type = 'button';
     btn.className = 'mr-btn';
     btn.textContent = h.installed ? 'Installed' : 'Install';
-    btn.disabled = h.installed;
+    btn.disabled = h.installed || locked;
     btn.addEventListener('click', async () => {
       btn.disabled = true;
       btn.textContent = 'Wait...';
@@ -165,61 +232,12 @@ async function mrSearch() {
   mrStatus.textContent = r.error || (r.hits.length ? '' : 'Kuch nahi mila.');
 }
 
-$('openMr').addEventListener('click', () => {
-  mrEl.hidden = false;
-  mrQuery.focus();
-  mrSearch();
-});
-$('mrClose').addEventListener('click', () => {
-  mrEl.hidden = true;
-});
 mrQuery.addEventListener('input', () => {
   clearTimeout(mrTimer);
   mrTimer = setTimeout(mrSearch, 400);
 });
 
-(async () => {
-  const s = await window.ghost.init();
-  $('version').textContent = `Minecraft ${s.mcVersion} · Fabric`;
-  usernameEl.value = s.username;
-  setMode(s.mode);
-  setAccount(s.msName);
-
-  const maxRam = Math.max(2, s.totalGb);
-  const options = [2, 3, 4, 6, 8, 12, 16, 20, 24, 28, 32].filter((n) => n <= maxRam);
-  if (!options.length) options.push(2);
-  for (const n of options) {
-    const o = document.createElement('option');
-    o.value = String(n);
-    o.textContent = `${n} GB`;
-    ramEl.appendChild(o);
-  }
-  const wanted = options.includes(s.ram) ? s.ram : options.includes(4) ? 4 : options[options.length - 1];
-  ramEl.value = String(wanted);
-})();
-
-let mode = 'offline';
-const msInfo = $('msInfo');
-const msLogout = $('msLogout');
-
-function setMode(m) {
-  mode = m;
-  $('modeOffline').classList.toggle('active', m === 'offline');
-  $('modePremium').classList.toggle('active', m === 'premium');
-  $('offlineBox').hidden = m !== 'offline';
-  $('premiumBox').hidden = m !== 'premium';
-}
-function setAccount(name) {
-  if (name) {
-    msInfo.textContent = `Login: ${name}`;
-    msLogout.hidden = false;
-  } else {
-    msInfo.textContent = 'Play dabane par Microsoft login window khulegi.';
-    msLogout.hidden = true;
-  }
-}
-// ---- Capes ----
-const cpEl = $('cp');
+// ---------- Capes ----------
 const cpList = $('cpList');
 const cpStatus = $('cpStatus');
 
@@ -264,7 +282,7 @@ function renderCapes(capes) {
     btn.type = 'button';
     btn.className = 'mr-btn';
     btn.textContent = c.active ? 'Lagi hui hai' : 'Lagao';
-    btn.disabled = c.active;
+    btn.disabled = c.active || locked;
     btn.addEventListener('click', () => setCape(c.id));
     li.appendChild(btn);
     cpList.appendChild(li);
@@ -281,34 +299,36 @@ function setCape(id) {
   return loadCapes(window.ghost.capeSet(id));
 }
 
-$('openCape').addEventListener('click', () => {
-  cpEl.hidden = false;
-  loadCapes(window.ghost.capeList());
-});
-$('cpClose').addEventListener('click', () => {
-  cpEl.hidden = true;
-});
-$('cpNone').addEventListener('click', () => setCape(null));
+function enterCapes() {
+  const premium = mode === 'premium';
+  $('cpOffline').hidden = premium;
+  $('cpNone').hidden = !premium;
+  cpList.textContent = '';
+  if (premium) loadCapes(window.ghost.capeList());
+  else cpStatus.textContent = '';
+}
 
+$('cpNone').addEventListener('click', () => setCape(null));
+$('goPremium').addEventListener('click', () => setMode('premium'));
+
+// ---------- account / settings ----------
 $('modeOffline').addEventListener('click', () => setMode('offline'));
 $('modePremium').addEventListener('click', () => setMode('premium'));
+usernameEl.addEventListener('input', updateWho);
 msLogout.addEventListener('click', async () => {
   await window.ghost.msLogout();
   setAccount('');
 });
 window.ghost.onAccount(setAccount);
 
+$('folder').addEventListener('click', () => window.ghost.openFolder());
+
 playBtn.addEventListener('click', () => {
   errorEl.hidden = true;
   window.ghost.play({ mode, username: usernameEl.value.trim(), ram: Number(ramEl.value) });
 });
 
-$('folder').addEventListener('click', () => window.ghost.openFolder());
-$('toggleLog').addEventListener('click', () => {
-  logEl.hidden = !logEl.hidden;
-  $('toggleLog').textContent = logEl.hidden ? 'Log dikhao' : 'Log chhupao';
-});
-
+// ---------- events from main ----------
 window.ghost.onLog(appendLog);
 
 window.ghost.onProgress(({ pct, text }) => {
@@ -318,23 +338,44 @@ window.ghost.onProgress(({ pct, text }) => {
 });
 
 window.ghost.onState((state) => {
-  const locked = state !== 'idle';
+  locked = state !== 'idle';
   playBtn.disabled = locked;
   usernameEl.disabled = locked;
   $('modeOffline').disabled = locked;
   $('modePremium').disabled = locked;
   msLogout.disabled = locked;
-  $('openCape').disabled = locked;
   ramEl.disabled = locked;
   $('addMod').disabled = locked;
-  $('openMr').disabled = locked;
+  $('cpNone').disabled = locked;
   document.body.dataset.locked = String(locked);
   window.ghost.listMods().then(renderMods);
-  playBtn.textContent = state === 'busy' ? 'WAIT...' : state === 'running' ? 'GAME CHAL RAHA HAI' : 'PLAY';
+  $('playText').textContent = state === 'busy' ? 'PLEASE WAIT...' : state === 'running' ? 'GAME RUNNING' : 'LAUNCH GAME';
 });
 
 window.ghost.onError((msg) => {
-  errorEl.textContent = msg;
-  errorEl.hidden = false;
+  showError(msg);
   appendLog('ERROR: ' + msg);
 });
+
+// ---------- start ----------
+(async () => {
+  const s = await window.ghost.init();
+  $('version').textContent = `Minecraft ${s.mcVersion} · Fabric`;
+  $('launchSub').textContent = `Fabric ${s.mcVersion} · Ghost Menu`;
+  usernameEl.value = s.username;
+
+  const maxRam = Math.max(2, s.totalGb);
+  const options = [2, 3, 4, 6, 8, 12, 16, 20, 24, 28, 32].filter((n) => n <= maxRam);
+  if (!options.length) options.push(2);
+  for (const n of options) {
+    const o = document.createElement('option');
+    o.value = String(n);
+    o.textContent = `${n} GB`;
+    ramEl.appendChild(o);
+  }
+  const wanted = options.includes(s.ram) ? s.ram : options.includes(4) ? 4 : options[options.length - 1];
+  ramEl.value = String(wanted);
+
+  setAccount(s.msName);
+  setMode(s.mode);
+})();

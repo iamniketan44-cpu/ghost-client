@@ -359,8 +359,8 @@ async function play({ mode, username, ram }) {
 // ---- Window ----
 function createWindow() {
   win = new BrowserWindow({
-    width: 480,
-    height: 860,
+    width: 1000,
+    height: 640,
     resizable: false,
     autoHideMenuBar: true,
     backgroundColor: '#0f1117',
