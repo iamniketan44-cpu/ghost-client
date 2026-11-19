@@ -28,7 +28,10 @@ public final class Config {
         new Mod("combo", "Combo", "COMBAT"),
         new Mod("keystrokes", "Keystrokes", "COMBAT"),
         new Mod("armor", "Armor Status", "COMBAT"),
-        new Mod("fullbright", "Fullbright", "WORLD")
+        new Mod("potions", "Potion Effects", "COMBAT"),
+        new Mod("mousekeys", "Mouse Buttons (Keystrokes)", "COMBAT"),
+        new Mod("fullbright", "Fullbright", "WORLD"),
+        new Mod("sprint", "Toggle Sprint", "WORLD")
     );
 
     private static final Properties PROPS = new Properties();
