@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, dialog, safeStorage } = require('electron');
+const { Auth } = require('msmc');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -40,8 +41,132 @@ function loadSettings() {
 }
 function saveSettings(s) {
   fs.mkdirSync(ROOT(), { recursive: true });
-  fs.writeFileSync(SETTINGS_FILE(), JSON.stringify(s));
+  fs.writeFileSync(SETTINGS_FILE(), JSON.stringify({ ...loadSettings(), ...s }));
 }
+
+// ---- Premium (Microsoft) login ----
+function encryptToken(t) {
+  try {
+    if (safeStorage.isEncryptionAvailable()) {
+      return safeStorage.encryptString(t).toString('base64');
+    }
+  } catch {}
+  return null; // encrypt na ho paye to save nahi karte, har baar login hoga
+}
+function decryptToken(b64) {
+  try {
+    return safeStorage.decryptString(Buffer.from(b64, 'base64'));
+  } catch {
+    return null;
+  }
+}
+
+let premiumAuth = null;
+
+async function getPremiumAuth() {
+  const authManager = new Auth('select_account');
+  const s = loadSettings();
+  let xbox = null;
+
+  if (s.msToken) {
+    const saved = decryptToken(s.msToken);
+    if (saved) {
+      try {
+        progress(1, 'Microsoft account check ho raha hai...');
+        xbox = await authManager.refresh(saved);
+      } catch {
+        xbox = null;
+      }
+    }
+  }
+  if (!xbox) {
+    progress(1, 'Microsoft login window khul rahi hai...');
+    try {
+      xbox = await authManager.launch('electron');
+    } catch (e) {
+      const m = String((e && (e.message || e)) || '');
+      if (/closed/i.test(m)) throw new Error('Login window band kar di gayi. Dobara Play dabayein.');
+      throw new Error('Microsoft login fail hua: ' + m);
+    }
+  }
+
+  const token = await xbox.getMinecraft();
+  if (typeof token.isDemo === 'function' && token.isDemo()) {
+    throw new Error('Is Microsoft account par Minecraft Java Edition nahi hai.');
+  }
+  const name = token.profile && token.profile.name;
+  let enc = null;
+  try {
+    enc = encryptToken(xbox.save());
+  } catch {}
+  saveSettings({ msToken: enc, msName: name || null });
+  send('account', name || '');
+  premiumAuth = token.mclc();
+  return premiumAuth;
+}
+
+// ---- Capes (Mojang API, sirf premium) ----
+async function mcs(method, p, body) {
+  const doReq = () =>
+    fetch('https://api.minecraftservices.com' + p, {
+      method,
+      headers: {
+        Authorization: `Bearer ${premiumAuth.access_token}`,
+        'Content-Type': 'application/json',
+        'User-Agent': UA,
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+  if (!premiumAuth) await getPremiumAuth();
+  let res = await doReq();
+  if (res.status === 401) {
+    await getPremiumAuth();
+    res = await doReq();
+  }
+  if (!res.ok) throw new Error(`Mojang server error (${res.status})`);
+  return res.json();
+}
+
+function mapCapes(profile) {
+  return (profile.capes || [])
+    .filter((c) => /^https:\/\/textures\.minecraft\.net\//.test(c.url || ''))
+    .map((c) => ({
+      id: c.id,
+      alias: c.alias || 'Cape',
+      url: c.url,
+      active: c.state === 'ACTIVE',
+    }));
+}
+
+ipcMain.handle('cape-list', async () => {
+  if (busy) return { capes: [], error: 'Game chal raha hai. Pehle game band karein.' };
+  try {
+    return { capes: mapCapes(await mcs('GET', '/minecraft/profile')) };
+  } catch (e) {
+    return { capes: [], error: e.message || String(e) };
+  } finally {
+    progress(0, '');
+  }
+});
+
+ipcMain.handle('cape-set', async (_e, id) => {
+  if (busy) return { capes: [], error: 'Game chal raha hai. Pehle game band karein.' };
+  try {
+    let profile;
+    if (id === null) {
+      profile = await mcs('DELETE', '/minecraft/profile/capes/active');
+    } else if (typeof id === 'string' && /^[0-9a-f-]{36}$/i.test(id)) {
+      profile = await mcs('PUT', '/minecraft/profile/capes/active', { capeId: id });
+    } else {
+      return { capes: [], error: 'Galat cape.' };
+    }
+    return { capes: mapCapes(profile) };
+  } catch (e) {
+    return { capes: [], error: e.message || String(e) };
+  } finally {
+    progress(0, '');
+  }
+});
 
 async function fetchJson(url, extraHeaders = {}) {
   const res = await fetch(url, { headers: { 'User-Agent': UA, ...extraHeaders } });
@@ -171,17 +296,20 @@ async function ensureMods() {
 }
 
 // ---- Play ----
-async function play({ username, ram }) {
+async function play({ mode, username, ram }) {
   if (busy) return;
   busy = true;
   send('state', 'busy');
   try {
-    if (!/^[A-Za-z0-9_]{3,16}$/.test(username || '')) {
+    const premium = mode === 'premium';
+    if (!premium && !/^[A-Za-z0-9_]{3,16}$/.test(username || '')) {
       throw new Error('Username 3-16 characters ka hona chahiye (sirf English letters, numbers, _).');
     }
     const ramGb = Math.max(1, Number(ram) || 4);
-    saveSettings({ username, ram: ramGb });
     fs.mkdirSync(ROOT(), { recursive: true });
+    saveSettings({ mode: premium ? 'premium' : 'offline', ram: ramGb, ...(premium ? {} : { username }) });
+
+    const auth = premium ? await getPremiumAuth() : Authenticator.getAuth(username);
 
     progress(1, 'Shuru ho raha hai...');
     const javaPath = await ensureJava();
@@ -209,7 +337,7 @@ async function play({ username, ram }) {
     });
 
     const proc = await launcher.launch({
-      authorization: Authenticator.getAuth(username),
+      authorization: auth,
       root: ROOT(),
       javaPath,
       version: { number: MC_VERSION, type: 'release', custom: FABRIC_ID },
@@ -232,7 +360,7 @@ async function play({ username, ram }) {
 function createWindow() {
   win = new BrowserWindow({
     width: 480,
-    height: 800,
+    height: 860,
     resizable: false,
     autoHideMenuBar: true,
     backgroundColor: '#0f1117',
@@ -251,12 +379,19 @@ ipcMain.handle('init', () => {
   const s = loadSettings();
   return {
     username: s.username || '',
+    mode: s.mode === 'premium' ? 'premium' : 'offline',
+    msName: s.msToken && s.msName ? s.msName : '',
     ram: s.ram || 4,
     totalGb: Math.round(os.totalmem() / 1024 ** 3),
     mcVersion: MC_VERSION,
   };
 });
 ipcMain.handle('play', (_e, data) => play(data));
+ipcMain.handle('ms-logout', () => {
+  saveSettings({ msToken: null, msName: null });
+  premiumAuth = null;
+  return true;
+});
 
 // ---- Mods manager ----
 const modsDir = () => path.join(ROOT(), 'game', 'mods');

@@ -182,6 +182,8 @@ mrQuery.addEventListener('input', () => {
   const s = await window.ghost.init();
   $('version').textContent = `Minecraft ${s.mcVersion} · Fabric`;
   usernameEl.value = s.username;
+  setMode(s.mode);
+  setAccount(s.msName);
 
   const maxRam = Math.max(2, s.totalGb);
   const options = [2, 3, 4, 6, 8, 12, 16, 20, 24, 28, 32].filter((n) => n <= maxRam);
@@ -196,9 +198,109 @@ mrQuery.addEventListener('input', () => {
   ramEl.value = String(wanted);
 })();
 
+let mode = 'offline';
+const msInfo = $('msInfo');
+const msLogout = $('msLogout');
+
+function setMode(m) {
+  mode = m;
+  $('modeOffline').classList.toggle('active', m === 'offline');
+  $('modePremium').classList.toggle('active', m === 'premium');
+  $('offlineBox').hidden = m !== 'offline';
+  $('premiumBox').hidden = m !== 'premium';
+}
+function setAccount(name) {
+  if (name) {
+    msInfo.textContent = `Login: ${name}`;
+    msLogout.hidden = false;
+  } else {
+    msInfo.textContent = 'Play dabane par Microsoft login window khulegi.';
+    msLogout.hidden = true;
+  }
+}
+// ---- Capes ----
+const cpEl = $('cp');
+const cpList = $('cpList');
+const cpStatus = $('cpStatus');
+
+function drawCape(canvas, url) {
+  const img = new Image();
+  img.onload = () => {
+    const s = img.width / 64; // cape texture ka scale
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, 1 * s, 1 * s, 10 * s, 16 * s, 0, 0, canvas.width, canvas.height);
+  };
+  img.src = url;
+}
+
+function renderCapes(capes) {
+  cpList.textContent = '';
+  if (!capes.length) {
+    const li = document.createElement('li');
+    li.className = 'empty';
+    li.textContent = 'Is account par koi cape nahi hai.';
+    cpList.appendChild(li);
+    return;
+  }
+  for (const c of capes) {
+    const li = document.createElement('li');
+    const canvas = document.createElement('canvas');
+    canvas.className = 'cape-canvas';
+    canvas.width = 40;
+    canvas.height = 64;
+    drawCape(canvas, c.url);
+    li.appendChild(canvas);
+
+    const info = document.createElement('div');
+    info.className = 'mod-info';
+    const t = document.createElement('span');
+    t.className = 'mod-name';
+    t.textContent = c.alias;
+    info.appendChild(t);
+    li.appendChild(info);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mr-btn';
+    btn.textContent = c.active ? 'Lagi hui hai' : 'Lagao';
+    btn.disabled = c.active;
+    btn.addEventListener('click', () => setCape(c.id));
+    li.appendChild(btn);
+    cpList.appendChild(li);
+  }
+}
+
+async function loadCapes(p) {
+  cpStatus.textContent = 'Load ho raha hai... (zaroorat par Microsoft login window khulegi)';
+  const r = await p;
+  renderCapes(r.capes);
+  cpStatus.textContent = r.error || '';
+}
+function setCape(id) {
+  return loadCapes(window.ghost.capeSet(id));
+}
+
+$('openCape').addEventListener('click', () => {
+  cpEl.hidden = false;
+  loadCapes(window.ghost.capeList());
+});
+$('cpClose').addEventListener('click', () => {
+  cpEl.hidden = true;
+});
+$('cpNone').addEventListener('click', () => setCape(null));
+
+$('modeOffline').addEventListener('click', () => setMode('offline'));
+$('modePremium').addEventListener('click', () => setMode('premium'));
+msLogout.addEventListener('click', async () => {
+  await window.ghost.msLogout();
+  setAccount('');
+});
+window.ghost.onAccount(setAccount);
+
 playBtn.addEventListener('click', () => {
   errorEl.hidden = true;
-  window.ghost.play({ username: usernameEl.value.trim(), ram: Number(ramEl.value) });
+  window.ghost.play({ mode, username: usernameEl.value.trim(), ram: Number(ramEl.value) });
 });
 
 $('folder').addEventListener('click', () => window.ghost.openFolder());
@@ -219,6 +321,10 @@ window.ghost.onState((state) => {
   const locked = state !== 'idle';
   playBtn.disabled = locked;
   usernameEl.disabled = locked;
+  $('modeOffline').disabled = locked;
+  $('modePremium').disabled = locked;
+  msLogout.disabled = locked;
+  $('openCape').disabled = locked;
   ramEl.disabled = locked;
   $('addMod').disabled = locked;
   $('openMr').disabled = locked;

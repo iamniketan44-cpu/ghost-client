@@ -64,6 +64,43 @@ input, select {
 input:focus, select:focus { border-color: #7c5cff; }
 input:disabled, select:disabled { opacity: 0.6; }
 
+.seg {
+  display: flex;
+  margin-bottom: 16px;
+  background: #0f1117;
+  border: 1px solid #2a3042;
+  border-radius: 10px;
+  padding: 3px;
+}
+.seg-btn {
+  flex: 1;
+  padding: 8px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: #8b90a0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.seg-btn.active { background: linear-gradient(135deg, #7c5cff, #3ec1ff); color: #fff; }
+.seg-btn:disabled { cursor: default; opacity: 0.6; }
+
+#premiumBox, #offlineBox { margin-bottom: 0; }
+.ms-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 11px 12px;
+  background: #0f1117;
+  border: 1px solid #2a3042;
+  border-radius: 9px;
+  font-size: 13px;
+  color: #aab0c0;
+}
+
 #play {
   width: 100%;
   padding: 13px;
@@ -204,8 +241,16 @@ body[data-locked="true"] .rm { opacity: 0.35; pointer-events: none; }
   margin-bottom: 12px;
 }
 .panel input { margin-bottom: 4px; }
-#mrList { list-style: none; margin: 8px 0 0; padding: 0; flex: 1; overflow: auto; }
-#mrList li {
+#mrList, #cpList { list-style: none; margin: 8px 0 0; padding: 0; flex: 1; overflow: auto; }
+.cape-canvas {
+  width: 40px;
+  height: 64px;
+  flex: none;
+  image-rendering: pixelated;
+  background: #171a23;
+  border-radius: 4px;
+}
+#mrList li, #cpList li {
   display: flex;
   align-items: center;
   gap: 10px;

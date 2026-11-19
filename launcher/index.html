@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data: https://cdn.modrinth.com"
+    content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data: https://cdn.modrinth.com https://textures.minecraft.net"
   />
   <title>Ghost Launcher</title>
   <link rel="stylesheet" href="style.css" />
@@ -18,8 +18,26 @@
     </header>
 
     <section class="card">
-      <label for="username">Username</label>
-      <input id="username" type="text" maxlength="16" placeholder="Apna naam likhein" autocomplete="off" />
+      <div class="seg">
+        <button type="button" id="modeOffline" class="seg-btn active">Offline</button>
+        <button type="button" id="modePremium" class="seg-btn">Premium</button>
+      </div>
+
+      <div id="offlineBox">
+        <label for="username">Username</label>
+        <input id="username" type="text" maxlength="16" placeholder="Apna naam likhein" autocomplete="off" />
+      </div>
+
+      <div id="premiumBox" hidden>
+        <label>Microsoft account</label>
+        <div class="ms-row">
+          <span id="msInfo">Play dabane par Microsoft login window khulegi.</span>
+          <span class="btns">
+            <button id="openCape" class="small accent" type="button">Capes</button>
+            <button id="msLogout" class="small" type="button" hidden>Logout</button>
+          </span>
+        </div>
+      </div>
 
       <label for="ram">RAM (GB)</label>
       <select id="ram"></select>
@@ -49,6 +67,19 @@
     </footer>
     <pre id="log" hidden></pre>
   </main>
+  <div id="cp" class="overlay" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <strong>Capes</strong>
+        <button id="cpClose" class="small" type="button">Band karein</button>
+      </div>
+      <button id="cpNone" class="small" type="button">Cape hatao (koi cape nahi)</button>
+      <p id="cpStatus" class="hint"></p>
+      <ul id="cpList"></ul>
+      <p class="hint">Ye aapke Microsoft account ke asli Mojang capes hain. Jo chunenge wo sabko dikhega.</p>
+    </div>
+  </div>
+
   <div id="mr" class="overlay" hidden>
     <div class="panel">
       <div class="panel-head">
