@@ -22,7 +22,7 @@ public final class Hud {
     private static final long START = System.currentTimeMillis();
     private static final DateTimeFormatter CLOCK = DateTimeFormatter.ofPattern("HH:mm");
 
-    private static boolean prevLeft, prevRight, fbWasOn, prevShift;
+    private static boolean prevLeft, prevRight, fbWasOn, prevShift, sprintWasOn;
     private static double lastX, lastZ;
     private static int prevHurt, tickCount;
     private static double speed;
@@ -56,6 +56,16 @@ public final class Hud {
             combo = 0;
             return;
         }
+
+        // Toggle Sprint: aage badhte hi apne aap sprint
+        boolean sp = Config.isOn("sprint");
+        if (sp && c.currentScreen == null && c.options.forwardKey.isPressed()) {
+            c.options.sprintKey.setPressed(true);
+        }
+        if (!sp && sprintWasOn) {
+            c.options.sprintKey.setPressed(false);
+        }
+        sprintWasOn = sp;
 
         double dx = p.getX() - lastX;
         double dz = p.getZ() - lastZ;
@@ -110,6 +120,7 @@ public final class Hud {
         if (Config.isOn("speed")) lines.add(String.format("Speed: %.1f b/s", speed));
         if (Config.isOn("cps")) lines.add("CPS: " + LEFT.size() + " | " + RIGHT.size());
         if (Config.isOn("combo")) lines.add("Combo: " + combo);
+        if (Config.isOn("sprint")) lines.add(p.isSprinting() ? "[Sprinting (Toggled)]" : "[Sprint: Toggled]");
 
         int x = 6;
         int y = 6;
@@ -134,18 +145,50 @@ public final class Hud {
             }
         }
 
+        if (Config.isOn("potions")) {
+            y += 4;
+            for (StatusEffectInstance ef : p.getStatusEffects()) {
+                // Fullbright ka apna night vision list mein na dikhe
+                if (Config.isOn("fullbright") && ef.getEffectType().equals(StatusEffects.NIGHT_VISION)) continue;
+                String name = ef.getEffectType().value().getName().getString();
+                int amp = ef.getAmplifier();
+                int d = ef.getDuration();
+                String time = d < 0 ? "**" : String.format("%d:%02d", d / 1200, (d / 20) % 60);
+                String s = name + (amp > 0 ? " " + roman(amp + 1) : "") + "  " + time;
+                int w = c.textRenderer.getWidth(s);
+                ctx.fill(x - 2, y - 2, x + w + 2, y + 10, 0x90000000);
+                ctx.drawText(c.textRenderer, s, x, y, 0xFFFFFFFF, true);
+                y += 14;
+            }
+        }
+
         if (Config.isOn("keystrokes")) {
+            boolean mouse = Config.isOn("mousekeys");
             int bx = 10;
-            int by = ctx.getScaledWindowHeight() - 60;
+            int by = ctx.getScaledWindowHeight() - (mouse ? 86 : 60);
             key(ctx, c, bx + 24, by, "W", c.options.forwardKey.isPressed());
             key(ctx, c, bx, by + 24, "A", c.options.leftKey.isPressed());
             key(ctx, c, bx + 24, by + 24, "S", c.options.backKey.isPressed());
             key(ctx, c, bx + 48, by + 24, "D", c.options.rightKey.isPressed());
+            if (mouse) {
+                key(ctx, c, bx, by + 48, 35, "LMB", prevLeft);
+                key(ctx, c, bx + 37, by + 48, 35, "RMB", prevRight);
+            }
         }
     }
 
+    private static String roman(int n) {
+        String[] r = {"", "I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"};
+        return n >= 0 && n < r.length ? r[n] : String.valueOf(n);
+    }
+
     private static void key(DrawContext ctx, MinecraftClient c, int x, int y, String label, boolean down) {
-        ctx.fill(x, y, x + 22, y + 22, down ? 0xB0FFFFFF : 0x90000000);
-        ctx.drawText(c.textRenderer, label, x + 8, y + 7, down ? 0xFF000000 : 0xFFFFFFFF, false);
+        key(ctx, c, x, y, 22, label, down);
+    }
+
+    private static void key(DrawContext ctx, MinecraftClient c, int x, int y, int w, String label, boolean down) {
+        ctx.fill(x, y, x + w, y + 22, down ? 0xB0FFFFFF : 0x90000000);
+        int tw = c.textRenderer.getWidth(label);
+        ctx.drawText(c.textRenderer, label, x + (w - tw) / 2, y + 7, down ? 0xFF000000 : 0xFFFFFFFF, false);
     }
 }
