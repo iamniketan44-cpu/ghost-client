@@ -336,6 +336,104 @@ ipcMain.handle('add-mods', async () => {
   return { mods: listMods() };
 });
 
+// ---- Modrinth ----
+const FABRIC_API_PROJECT = 'P7dR8mSH'; // launcher isse khud sambhalta hai
+const MR = 'https://api.modrinth.com/v2';
+const MR_FILE = () => path.join(ROOT(), 'modrinth.json');
+
+function loadMrMap() {
+  try {
+    return JSON.parse(fs.readFileSync(MR_FILE(), 'utf8'));
+  } catch {
+    return {};
+  }
+}
+function saveMrMap(m) {
+  fs.mkdirSync(ROOT(), { recursive: true });
+  fs.writeFileSync(MR_FILE(), JSON.stringify(m));
+}
+
+ipcMain.handle('mr-search', async (_e, query) => {
+  try {
+    const q = String(query || '').trim().slice(0, 80);
+    const facets = JSON.stringify([
+      ['project_type:mod'],
+      ['categories:fabric'],
+      [`versions:${MC_VERSION}`],
+    ]);
+    const url =
+      `${MR}/search?query=${encodeURIComponent(q)}` +
+      `&facets=${encodeURIComponent(facets)}` +
+      `&index=${q ? 'relevance' : 'downloads'}&limit=20`;
+    const data = await fetchJson(url);
+    const map = loadMrMap();
+    const hits = (data.hits || [])
+      .filter((h) => h.project_id !== FABRIC_API_PROJECT)
+      .map((h) => ({
+        id: h.project_id,
+        title: h.title,
+        description: h.description,
+        author: h.author,
+        downloads: h.downloads,
+        icon: /^https:\/\/cdn\.modrinth\.com\//.test(h.icon_url || '') ? h.icon_url : '',
+        installed: !!(map[h.project_id] && fs.existsSync(path.join(modsDir(), map[h.project_id]))),
+      }));
+    return { hits };
+  } catch (e) {
+    return { hits: [], error: 'Modrinth se connect nahi ho paya: ' + (e.message || e) };
+  }
+});
+
+async function installFromModrinth(projectId, seen, depth) {
+  if (seen.has(projectId) || depth > 4) return [];
+  seen.add(projectId);
+  if (projectId === FABRIC_API_PROJECT) return [];
+
+  const url =
+    `${MR}/project/${encodeURIComponent(projectId)}/version` +
+    `?game_versions=${encodeURIComponent(JSON.stringify([MC_VERSION]))}` +
+    `&loaders=${encodeURIComponent(JSON.stringify(['fabric']))}`;
+  const versions = await fetchJson(url);
+  const v = versions.find((x) => x.version_type === 'release') || versions[0];
+  if (!v) throw new Error(`Is mod ka ${MC_VERSION} Fabric version nahi mila.`);
+
+  const f = v.files.find((x) => x.primary) || v.files[0];
+  const fname = path.basename(f.filename || '');
+  if (!/\.jar$/i.test(fname) || fname !== f.filename) throw new Error('Mod file sahi nahi lagi.');
+  if (new URL(f.url).hostname !== 'cdn.modrinth.com') throw new Error('Download link bharosemand nahi.');
+
+  fs.mkdirSync(modsDir(), { recursive: true });
+  const dest = path.join(modsDir(), fname);
+  if (!fs.existsSync(dest)) {
+    log(`Modrinth: ${fname} download ho raha hai...`);
+    await download(f.url, dest);
+  }
+  const map = loadMrMap();
+  map[projectId] = fname;
+  saveMrMap(map);
+
+  const done = [fname];
+  for (const d of v.dependencies || []) {
+    if (d.dependency_type === 'required' && d.project_id) {
+      done.push(...(await installFromModrinth(d.project_id, seen, depth + 1)));
+    }
+  }
+  return done;
+}
+
+ipcMain.handle('mr-install', async (_e, projectId) => {
+  if (busy) return { error: 'Game chal raha hai. Pehle game band karein.' };
+  if (typeof projectId !== 'string' || !/^[A-Za-z0-9]{6,12}$/.test(projectId)) {
+    return { error: 'Galat mod.' };
+  }
+  try {
+    const files = await installFromModrinth(projectId, new Set(), 0);
+    return { files, mods: listMods() };
+  } catch (e) {
+    return { error: e.message || String(e) };
+  }
+});
+
 ipcMain.handle('remove-mod', (_e, name) => {
   if (busy) return { mods: listMods(), error: 'Game chal raha hai. Pehle game band karein.' };
   if (

@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data:"
+    content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data: https://cdn.modrinth.com"
   />
   <title>Ghost Launcher</title>
   <link rel="stylesheet" href="style.css" />
@@ -34,7 +34,10 @@
     <section class="card mods">
       <div class="mods-head">
         <span>Mods</span>
-        <button id="addMod" class="small" type="button">+ Mod add karein</button>
+        <span class="btns">
+          <button id="openMr" class="small accent" type="button">Modrinth</button>
+          <button id="addMod" class="small" type="button">+ File se</button>
+        </span>
       </div>
       <ul id="modList"></ul>
       <p class="hint">Sirf Fabric 1.21.11 ke .jar mods. Fabric API pehle se laga hai.</p>
@@ -46,6 +49,18 @@
     </footer>
     <pre id="log" hidden></pre>
   </main>
+  <div id="mr" class="overlay" hidden>
+    <div class="panel">
+      <div class="panel-head">
+        <strong>Modrinth Mods</strong>
+        <button id="mrClose" class="small" type="button">Band karein</button>
+      </div>
+      <input id="mrQuery" type="text" placeholder="Mod ka naam search karein (jaise sodium)" autocomplete="off" />
+      <p id="mrStatus" class="hint"></p>
+      <ul id="mrList"></ul>
+      <p class="hint">Sirf Fabric 1.21.11 ke mods dikhte hain. Zaroori dependencies apne aap lagti hain.</p>
+    </div>
+  </div>
   <script src="renderer.js"></script>
 </body>
 </html>

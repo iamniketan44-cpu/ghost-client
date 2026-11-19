@@ -88,6 +88,96 @@ $('addMod').addEventListener('click', async () => {
 
 window.ghost.listMods().then(renderMods);
 
+// ---- Modrinth ----
+const mrEl = $('mr');
+const mrList = $('mrList');
+const mrStatus = $('mrStatus');
+const mrQuery = $('mrQuery');
+let mrTimer = null;
+let mrSeq = 0;
+
+function fmtNum(n) {
+  if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+  if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+  return String(n || 0);
+}
+
+function renderMr(hits) {
+  mrList.textContent = '';
+  for (const h of hits) {
+    const li = document.createElement('li');
+    if (h.icon) {
+      const img = document.createElement('img');
+      img.className = 'mod-icon';
+      img.src = h.icon;
+      img.alt = '';
+      li.appendChild(img);
+    } else {
+      const ph = document.createElement('div');
+      ph.className = 'mod-icon ph';
+      ph.textContent = (h.title || '?').charAt(0).toUpperCase();
+      li.appendChild(ph);
+    }
+    const info = document.createElement('div');
+    info.className = 'mod-info';
+    const t = document.createElement('span');
+    t.className = 'mod-name';
+    t.textContent = h.title;
+    const d = document.createElement('span');
+    d.className = 'mr-desc';
+    d.textContent = h.description || '';
+    const meta = document.createElement('span');
+    meta.className = 'mr-meta';
+    meta.textContent = `${h.author} · ${fmtNum(h.downloads)} downloads`;
+    info.append(t, d, meta);
+    li.appendChild(info);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mr-btn';
+    btn.textContent = h.installed ? 'Installed' : 'Install';
+    btn.disabled = h.installed;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Wait...';
+      const r = await window.ghost.mrInstall(h.id);
+      if (r.error) {
+        btn.disabled = false;
+        btn.textContent = 'Install';
+        mrStatus.textContent = r.error;
+      } else {
+        btn.textContent = 'Installed';
+        mrStatus.textContent = `Lag gaya: ${r.files.join(', ')}`;
+        renderMods(r.mods);
+      }
+    });
+    li.appendChild(btn);
+    mrList.appendChild(li);
+  }
+}
+
+async function mrSearch() {
+  const seq = ++mrSeq;
+  mrStatus.textContent = 'Dhundh raha hai...';
+  const r = await window.ghost.mrSearch(mrQuery.value);
+  if (seq !== mrSeq) return;
+  renderMr(r.hits);
+  mrStatus.textContent = r.error || (r.hits.length ? '' : 'Kuch nahi mila.');
+}
+
+$('openMr').addEventListener('click', () => {
+  mrEl.hidden = false;
+  mrQuery.focus();
+  mrSearch();
+});
+$('mrClose').addEventListener('click', () => {
+  mrEl.hidden = true;
+});
+mrQuery.addEventListener('input', () => {
+  clearTimeout(mrTimer);
+  mrTimer = setTimeout(mrSearch, 400);
+});
+
 (async () => {
   const s = await window.ghost.init();
   $('version').textContent = `Minecraft ${s.mcVersion} · Fabric`;
@@ -131,6 +221,7 @@ window.ghost.onState((state) => {
   usernameEl.disabled = locked;
   ramEl.disabled = locked;
   $('addMod').disabled = locked;
+  $('openMr').disabled = locked;
   document.body.dataset.locked = String(locked);
   window.ghost.listMods().then(renderMods);
   playBtn.textContent = state === 'busy' ? 'WAIT...' : state === 'running' ? 'GAME CHAL RAHA HAI' : 'PLAY';
