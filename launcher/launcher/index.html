@@ -4,39 +4,202 @@
   <meta charset="UTF-8" />
   <meta
     http-equiv="Content-Security-Policy"
-    content="default-src 'self'; style-src 'self'; script-src 'self'"
+    content="default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' data: https://cdn.modrinth.com https://textures.minecraft.net"
   />
   <title>Ghost Launcher</title>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <main>
-    <header>
-      <div class="logo">G</div>
-      <h1>Ghost Launcher</h1>
-      <p id="version">Minecraft &middot; Fabric</p>
+  <div class="app">
+
+    <!-- Top bar -->
+    <header class="top">
+      <div class="brand"><div class="logo">G</div><span>Ghost Launcher</span></div>
+      <span class="pill" id="version">Minecraft &middot; Fabric</span>
+      <div class="spacer"></div>
+      <div class="who">
+        <div class="avatar" id="whoAvatar">?</div>
+        <div class="who-text">
+          <span class="who-label" id="whoLabel">Playing as</span>
+          <b id="whoName">&mdash;</b>
+        </div>
+      </div>
     </header>
 
-    <section class="card">
-      <label for="username">Username</label>
-      <input id="username" type="text" maxlength="16" placeholder="Apna naam likhein" autocomplete="off" />
+    <div class="body">
 
-      <label for="ram">RAM (GB)</label>
-      <select id="ram"></select>
+      <!-- Left icon rail -->
+      <nav class="rail">
+        <button class="nav active" data-page="home" title="Home" type="button">
+          <svg viewBox="0 0 24 24"><path d="M6 12h4M8 10v4M15 13h.01M18 11h.01M17.3 5H6.7a4 4 0 0 0-3.9 3.2l-1.4 7a2.6 2.6 0 0 0 4.4 2.3L8 15h8l2.2 2.5a2.6 2.6 0 0 0 4.4-2.3l-1.4-7A4 4 0 0 0 17.3 5z"/></svg>
+        </button>
+        <button class="nav" data-page="mods" title="Mods" type="button">
+          <svg viewBox="0 0 24 24"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="m3 7 9 5 9-5M12 12v10"/></svg>
+        </button>
+        <button class="nav" data-page="skins" title="Skins" type="button">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>
+        </button>
+        <button class="nav" data-page="capes" title="Capes" type="button">
+          <svg viewBox="0 0 24 24"><path d="M8 3 4 6l2 3 2-1v13h8V8l2 1 2-3-4-3a4 4 0 0 1-8 0z"/></svg>
+        </button>
+        <div class="grow"></div>
+        <button class="nav" data-page="settings" title="Settings" type="button">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>
+        </button>
+      </nav>
 
-      <button id="play" type="button">PLAY</button>
+      <main>
 
-      <div id="bar" class="bar" hidden><div id="fill"></div></div>
-      <p id="status"></p>
-      <p id="error" hidden></p>
-    </section>
+        <!-- HOME -->
+        <section id="page-home" class="page active">
+          <div class="home-grid">
+            <div class="home-main">
+              <div class="hero">
+                <div class="hero-glow"></div>
+                <div class="hero-logo">G</div>
+                <button id="play" class="launch" type="button">
+                  <span class="l1" id="playText">LAUNCH GAME</span>
+                  <span class="l2" id="launchSub">Fabric &middot; Ghost Menu</span>
+                </button>
+                <div id="bar" class="bar" hidden><div id="fill"></div></div>
+                <p id="status"></p>
+                <p id="error" hidden></p>
+              </div>
 
-    <footer>
-      <button id="folder" class="link" type="button">Game folder kholein</button>
-      <button id="toggleLog" class="link" type="button">Log dikhao</button>
-    </footer>
-    <pre id="log" hidden></pre>
-  </main>
+              <h3 class="sec">Shortcuts</h3>
+              <div class="tiles">
+                <button class="tile" data-go="mods" type="button">
+                  <b>Mods</b><span id="modCount">0 installed</span>
+                </button>
+                <button class="tile" data-go="modrinth" type="button">
+                  <b>Modrinth</b><span>Find new mods</span>
+                </button>
+                <button class="tile" data-go="capes" type="button">
+                  <b>Capes</b><span>Premium capes</span>
+                </button>
+              </div>
+            </div>
+
+            <aside class="side">
+              <h3 class="sec">Account</h3>
+              <div class="seg">
+                <button type="button" id="modeOffline" class="seg-btn active">Offline</button>
+                <button type="button" id="modePremium" class="seg-btn">Premium</button>
+              </div>
+
+              <div id="offlineBox">
+                <label for="username">Username</label>
+                <input id="username" type="text" maxlength="16" placeholder="Enter your name" autocomplete="off" />
+              </div>
+
+              <div id="premiumBox" hidden>
+                <label>Microsoft account</label>
+                <div class="ms-row">
+                  <span id="msInfo">A Microsoft login window will open when you launch.</span>
+                  <button id="msLogout" class="small" type="button" hidden>Logout</button>
+                </div>
+              </div>
+
+              <label for="ram">RAM</label>
+              <select id="ram"></select>
+            </aside>
+          </div>
+        </section>
+
+        <!-- MODS (+ Modrinth) -->
+        <section id="page-mods" class="page">
+          <div class="page-head">
+            <h2>Mods</h2>
+            <div class="tabs">
+              <button class="tab active" data-tab="installed" type="button">Installed</button>
+              <button class="tab" data-tab="mr" type="button">Modrinth</button>
+            </div>
+            <div class="spacer"></div>
+            <button id="addMod" class="small" type="button">+ Add from file</button>
+          </div>
+
+          <div id="tab-installed">
+            <ul id="modList" class="list"></ul>
+            <p class="hint">Fabric 1.21.11 .jar mods only. Fabric API and Ghost Menu are installed automatically.</p>
+          </div>
+
+          <div id="tab-mr" hidden>
+            <input id="mrQuery" type="text" placeholder="Search Modrinth (e.g. sodium)" autocomplete="off" />
+            <p id="mrStatus" class="hint"></p>
+            <ul id="mrList" class="list grid2"></ul>
+          </div>
+        </section>
+
+        <!-- SKINS -->
+        <section id="page-skins" class="page">
+          <div class="page-head"><h2>Skins</h2></div>
+          <div class="skin-grid">
+            <div class="skin-preview">
+              <canvas id="skinCanvas" width="96" height="192"></canvas>
+              <p id="skinLabel" class="hint">No skin selected yet</p>
+            </div>
+            <div class="skin-controls">
+              <label>Skin file (.png, 64x64)</label>
+              <div class="row-btns">
+                <button id="skinPick" class="small accent" type="button">Choose file</button>
+                <input id="skinFile" type="file" accept="image/png" hidden />
+              </div>
+
+              <label>Or fetch by player name</label>
+              <div class="row-btns">
+                <input id="skinName" type="text" maxlength="16" placeholder="Player name" autocomplete="off" />
+                <button id="skinFetch" class="small" type="button">Fetch skin</button>
+              </div>
+
+              <label for="skinModel">Model (arm size)</label>
+              <select id="skinModel">
+                <option value="classic">Classic (Steve, wide arms)</option>
+                <option value="slim">Slim (Alex, slim arms)</option>
+              </select>
+
+              <div class="row-btns">
+                <button id="skinApply" class="mr-btn" type="button" disabled>Apply skin</button>
+                <button id="skinClear" class="small" type="button">Remove local skin</button>
+              </div>
+              <p id="skinStatus" class="hint"></p>
+              <p class="hint">
+                <b>Premium</b> mode applies the skin to your Microsoft account, visible to everyone.
+                <b>Offline</b> mode installs a small skin mod automatically; the skin is only visible in your own game.
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <!-- CAPES -->
+        <section id="page-capes" class="page">
+          <div class="page-head">
+            <h2>Capes</h2>
+            <div class="spacer"></div>
+            <button id="cpNone" class="small" type="button">Remove cape</button>
+          </div>
+          <div id="cpOffline" class="notice" hidden>
+            Capes require <b>Premium</b> mode (a real Minecraft account).
+            <button id="goPremium" class="small accent" type="button">Switch to Premium</button>
+          </div>
+          <p id="cpStatus" class="hint"></p>
+          <ul id="cpList" class="list grid2"></ul>
+          <p class="hint">These are the official Mojang capes on your Microsoft account. The one you pick is visible to everyone.</p>
+        </section>
+
+        <!-- SETTINGS -->
+        <section id="page-settings" class="page">
+          <div class="page-head"><h2>Settings</h2></div>
+          <div class="setting-row">
+            <div><b>Game folder</b><span class="hint">Saves, mods and config live here.</span></div>
+            <button id="folder" class="small" type="button">Open</button>
+          </div>
+          <h3 class="sec">Log</h3>
+          <pre id="log"></pre>
+        </section>
+
+      </main>
+    </div>
+  </div>
   <script src="renderer.js"></script>
 </body>
 </html>
